@@ -1,56 +1,39 @@
-import socket
-import _thread
-import threading
-from datetime import datetime
+from flask import Flask, render_template, request
+from flask_socketio import SocketIO, send, emit
+import os
 
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'secret!'
+socketio = SocketIO(app)
 
-class Server():
+# یک دیکشنری برای ذخیره نام‌های کاربری
+users = {}
 
-    def __init__(self):
+@app.route('/')
+def index():
+    return render_template('index.html')  # بارگذاری صفحه HTML
 
-        # For remembering users
-        self.users_table = {}
+# دریافت و ذخیره نام کاربری
+@socketio.on('set_username')
+def handle_username(username):
+    users[request.sid] = username  # ذخیره نام کاربری با شناسه ارتباط
+    send(f"{username} has joined the chat!", broadcast=True)  # ارسال پیامی به همه کاربران
 
-        # Create a TCP/IP socket and bind it the Socket to the port
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_address = ('localhost', 8080)
-        self.socket.bind(self.server_address)
-        self.socket.setblocking(1)
-        self.socket.listen(10)
-        print('Starting up on {} port {}'.format(*self.server_address))
-        self._wait_for_new_connections()
+# دریافت پیام متنی
+@socketio.on('message')
+def handle_message(message):
+    username = users.get(request.sid, "Unknown")  # دریافت نام کاربری با استفاده از شناسه
+    send(f"{username}: {message}", broadcast=True)  # ارسال پیام به همه کاربران
 
-    def _wait_for_new_connections(self):
-        while True:
-            connection, _ = self.socket.accept()
-            _thread.start_new_thread(self._on_new_client, (connection,))
-
-    def _on_new_client(self, connection):
-        try:
-            # Declare the client's name
-            client_name = connection.recv(64).decode('utf-8')
-            self.users_table[connection] = client_name
-            print(f'{self._get_current_time()} {client_name} joined the room !!')
-
-            while True:
-                data = connection.recv(64).decode('utf-8')
-                if data != '':
-                    self.multicast(data, owner=connection)
-                else:
-                    return 
-        except:
-            print(f'{self._get_current_time()} {client_name} left the room !!')
-            self.users_table.pop(connection)
-            connection.close()
-
-    def _get_current_time(self):
-        return datetime.now().strftime("%H:%M:%S")
-
-    def multicast(self, message, owner=None):
-        for conn in self.users_table:
-            data = f'{self._get_current_time()} {self.users_table[owner]}: {message}'
-            conn.sendall(bytes(data, encoding='utf-8'))  
-
+# دریافت فایل
+@socketio.on('file')
+def handle_file(data):
+    username = users.get(request.sid, "Unknown")
+    file_name = data['file_name']
+    file_data = data['file_data']
+    
+    # ارسال فایل به همه کاربران
+    emit('file', {'file_name': file_name, 'file_data': file_data, 'username': username}, broadcast=True)
 
 if __name__ == "__main__":
-    Server()
+    socketio.run(app, host="localhost", port=5000)

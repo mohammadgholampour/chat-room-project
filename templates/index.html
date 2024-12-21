@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Chat Room</title>
+    <script src="https://cdn.socket.io/4.5.1/socket.io.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(45deg, #4e73df, #1cc88a);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 10px;
+        }
+
+        .chat-container {
+            background-color: #fff;
+            border-radius: 15px;
+            width: 400px;
+            max-height: 600px;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        /* عنوان */
+        h1 {
+            background-color: #3498db;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            margin: 0;
+            font-size: 20px;
+            letter-spacing: 1px;
+        }
+
+        /* بخش نمایش پیام‌ها */
+        #chat-box {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background-color: #f1f1f1;
+            border-bottom: 2px solid #ddd;
+            font-size: 14px;
+            color: #555;
+            font-family: 'Roboto', sans-serif;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .message {
+            background-color: #e7f1ff;
+            padding: 8px 12px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            word-wrap: break-word;
+            max-width: 80%;
+        }
+
+        .message.sent {
+            background-color: #d4f5d9;
+            align-self: flex-end;
+        }
+
+        .message p {
+            margin: 0;
+        }
+
+        .username {
+            font-weight: bold;
+            color: #2980b9;
+        }
+
+        /* فرم ورودی */
+        .input-container {
+            display: flex;
+            padding: 10px;
+            background-color: #fff;
+            border-top: 2px solid #ddd;
+            box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #message {
+            width: 70%;
+            padding: 10px;
+            border-radius: 25px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+            margin-right: 10px;
+            transition: all 0.3s;
+        }
+
+        #message:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #3498db;
+            border: none;
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background-color: #2980b9;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        /* دکمه ارسال فایل */
+        #file-input {
+            border: none;
+            padding: 8px;
+            margin-right: 10px;
+        }
+
+        .file-link {
+            color: #3498db;
+            text-decoration: none;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .file-link:hover {
+            text-decoration: underline;
+        }
+
+        /* انیمیشن‌ها */
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(-20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="chat-container">
+        <h1>Welcome to the Chat Room</h1>
+
+        <div id="chat-box"></div>
+
+        <div class="input-container">
+            <input type="text" id="message" placeholder="Type a message..." />
+            <button onclick="sendMessage()">Send</button>
+        </div>
+
+        <div class="input-container">
+            <input type="file" id="file-input" />
+            <button onclick="sendFile()">Send File</button>
+        </div>
+    </div>
+
+    <script>
+        var socket = io.connect('http://localhost:5000');
+        
+        // ارسال پیام
+        function sendMessage() {
+            var message = document.getElementById('message').value;
+            if (message) {
+                socket.send(message);
+                document.getElementById('message').value = '';  // پاک کردن فیلد پیام
+            }
+        }
+
+        // ارسال فایل
+        function sendFile() {
+            var fileInput = document.getElementById('file-input');
+            var file = fileInput.files[0];
+            if (file) {
+                var reader = new FileReader();
+                reader.onload = function(event) {
+                    var fileData = event.target.result;
+                    socket.emit('file', {file_name: file.name, file_data: fileData});
+                };
+                reader.readAsArrayBuffer(file);  // تبدیل فایل به باینری
+            }
+        }
+
+        // دریافت پیام‌ها و فایل‌ها از سرور
+        socket.on('message', function(data) {
+            var chatBox = document.getElementById('chat-box');
+            var message = document.createElement('div');
+            message.className = 'message';
+            message.innerHTML = `<p><span class="username">User:</span> ${data}</p>`;
+            chatBox.appendChild(message);
+            chatBox.scrollTop = chatBox.scrollHeight;  // اسکرول به پایین
+        });
+
+        socket.on('file', function(data) {
+            var chatBox = document.getElementById('chat-box');
+            var fileLink = document.createElement('a');
+            fileLink.href = 'data:application/octet-stream;base64,' + btoa(String.fromCharCode.apply(null, new Uint8Array(data.file_data)));
+            fileLink.download = data.file_name;
+            fileLink.className = 'file-link';
+            fileLink.textContent = `${data.username} sent a file: ${data.file_name}`;
+            chatBox.appendChild(fileLink);
+            chatBox.innerHTML += "<br>";
+            chatBox.scrollTop = chatBox.scrollHeight;  // اسکرول به پایین
+        });
+
+        // ارسال نام کاربری به سرور
+        var username = prompt("Enter your name:");
+        socket.emit('set_username', username);
+    </script>
+
+</body>
+</html>
