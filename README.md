@@ -56,5 +56,3 @@ This project is a simple chat room application built using Python's socket progr
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 ```
-
-کافی است این محتوا را کپی کرده و در فایل `README.md` پروژه خود قرار دهید.
